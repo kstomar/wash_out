@@ -48,15 +48,6 @@ module WashOut
 
     def parse_soap_action(env)
       return env['wash_out.soap_action'] if env['wash_out.soap_action']
-      temp = {}
-      action = env['wash_out.soap_action'].to_sym
-      temp_body = nori(controller.soap_config.snakecase_input).parse(soap_body env)
-      unless temp_body[:Envelope][:Body].keys.include?(action)
-        temp[action] = temp_body[:Envelope][:Body]
-        temp_body[:Envelope][:Body] = temp
-      end
-
-      env['wash_out.soap_data'] = temp_body
 
       soap_action = controller.soap_config.soap_action_routing ? env['HTTP_SOAPACTION'].to_s.gsub(/^"(.*)"$/, '\1')
                                                                : ''
@@ -102,7 +93,15 @@ module WashOut
 
     def parse_soap_parameters(env)
       return env['wash_out.soap_data'] if env['wash_out.soap_data']
-      env['wash_out.soap_data'] = nori(controller.soap_config.snakecase_input).parse(soap_body env)
+      temp = {}
+      action = env['wash_out.soap_action']&.to_sym
+      temp_body = nori(controller.soap_config.snakecase_input).parse(soap_body env)
+      unless temp_body[:Envelope][:Body].keys.include?(action)
+        temp[action] = temp_body[:Envelope][:Body]
+        temp_body[:Envelope][:Body] = temp
+      end
+      env['wash_out.soap_data'] = temp_body
+
       references = WashOut::Dispatcher.deep_select(env['wash_out.soap_data']){|v| v.is_a?(Hash) && v.has_key?(:@id)}
 
       unless references.blank?
